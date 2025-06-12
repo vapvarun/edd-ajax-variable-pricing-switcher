@@ -395,6 +395,155 @@ class EDD_AJAX_Variable_Pricing_Switcher {
             </div>
             
         </div>
+        
+        <script>
+        // Inline JavaScript functions for this specific switcher
+        if (typeof window.eddPricingSwitcherInitialized === 'undefined') {
+            window.eddPricingSwitcherInitialized = true;
+            
+            // Global toggle function
+            window.togglePricingOptions = function(targetId) {
+                // Hide all other pricing containers
+                var allContainers = document.querySelectorAll('.pricing-options-container');
+                allContainers.forEach(function(container) {
+                    if (container.id !== targetId) {
+                        container.style.display = 'none';
+                    }
+                });
+                
+                // Toggle the target container
+                var targetContainer = document.getElementById(targetId);
+                if (targetContainer) {
+                    if (targetContainer.style.display === 'none' || !targetContainer.style.display) {
+                        targetContainer.style.display = 'block';
+                    } else {
+                        targetContainer.style.display = 'none';
+                    }
+                }
+            };
+            
+            // Global update function
+            window.updatePricingInline = function(targetId, cartKey, downloadId) {
+                var container = document.getElementById(targetId);
+                if (!container) {
+                    alert('Container not found');
+                    return;
+                }
+                
+                var selectedRadio = container.querySelector('.edd-simple-price-radio:checked');
+                if (!selectedRadio) {
+                    alert('Please select a license option.');
+                    return;
+                }
+                
+                var priceId = selectedRadio.value;
+                var priceName = selectedRadio.getAttribute('data-price-name');
+                
+                if (!cartKey || !downloadId || !priceId) {
+                    alert('Missing required data');
+                    return;
+                }
+                
+                // Show loading
+                var statusDiv = container.querySelector('.pricing-status');
+                if (statusDiv) {
+                    statusDiv.className = 'pricing-status loading';
+                    statusDiv.innerHTML = 'Updating your cart...';
+                    statusDiv.style.display = 'block';
+                }
+                
+                // Disable button
+                var button = container.querySelector('.update-price-btn');
+                if (button) {
+                    button.disabled = true;
+                    button.innerHTML = 'Updating...';
+                }
+                
+                // Make AJAX request
+                if (typeof jQuery !== 'undefined' && typeof edd_ajax_switcher !== 'undefined') {
+                    var ajaxData = {
+                        action: 'edd_update_cart_item_price',
+                        cart_key: cartKey,
+                        download_id: downloadId,
+                        price_id: priceId,
+                        nonce: edd_ajax_switcher.nonce
+                    };
+                    
+                    jQuery.ajax({
+                        type: 'POST',
+                        url: edd_ajax_switcher.ajaxurl,
+                        data: ajaxData,
+                        dataType: 'json',
+                        timeout: 15000,
+                        success: function(response) {
+                            if (response.success && response.data) {
+                                // Update current license display
+                                var switcher = container.closest('.edd-simple-pricing-switcher');
+                                if (switcher) {
+                                    var currentName = switcher.querySelector('.current-license-name');
+                                    if (currentName) {
+                                        currentName.textContent = priceName;
+                                    }
+                                }
+                                
+                                // Show success
+                                if (statusDiv) {
+                                    statusDiv.className = 'pricing-status success';
+                                    statusDiv.innerHTML = '✓ License updated successfully!';
+                                }
+                                
+                                // Update all cart totals
+                                if (typeof updateCartTotalsAdvanced === 'function') {
+                                    updateCartTotalsAdvanced(response.data);
+                                }
+                                
+                                // Update cart key for future requests
+                                if (switcher) {
+                                    switcher.setAttribute('data-cart-key', response.data.new_cart_key);
+                                    var radios = switcher.querySelectorAll('.edd-simple-price-radio');
+                                    radios.forEach(function(radio) {
+                                        radio.setAttribute('data-cart-key', response.data.new_cart_key);
+                                    });
+                                }
+                                
+                                // Close panel after success
+                                setTimeout(function() {
+                                    container.style.display = 'none';
+                                }, 1500);
+                                
+                            } else {
+                                var errorMsg = response.data && response.data.message ? 
+                                    response.data.message : 'Failed to update license.';
+                                
+                                if (statusDiv) {
+                                    statusDiv.className = 'pricing-status error';
+                                    statusDiv.innerHTML = errorMsg;
+                                }
+                            }
+                        },
+                        error: function(xhr, status, error) {
+                            var errorMsg = status === 'timeout' ? 
+                                'Update timed out. Please try again.' : 
+                                'Network error. Please try again.';
+                            
+                            if (statusDiv) {
+                                statusDiv.className = 'pricing-status error';
+                                statusDiv.innerHTML = errorMsg;
+                            }
+                        },
+                        complete: function() {
+                            if (button) {
+                                button.disabled = false;
+                                button.innerHTML = 'Update License';
+                            }
+                        }
+                    });
+                } else {
+                    alert('AJAX not available');
+                }
+            };
+        }
+        </script>
         <?php
     }
     
@@ -467,10 +616,13 @@ class EDD_AJAX_Variable_Pricing_Switcher {
                 'success' => true,
                 'new_cart_key' => $new_cart_key,
                 'old_cart_key' => $cart_key,
+                'download_id' => $download_id,
                 'price_name' => $selected_price['name'],
                 'price_amount' => edd_currency_filter(edd_format_amount($selected_price['amount'])),
                 'cart_total' => edd_currency_filter($new_total),
-                'cart_subtotal' => edd_currency_filter($new_subtotal)
+                'cart_subtotal' => edd_currency_filter($new_subtotal),
+                'cart_total_raw' => $new_total,
+                'cart_subtotal_raw' => $new_subtotal
             );
             
             wp_send_json_success($response_data);

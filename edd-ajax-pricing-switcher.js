@@ -349,7 +349,8 @@ function updateCartTotalsAdvanced(responseData) {
         '#edd_checkout_cart_total',
         '.edd_checkout_cart_total',
         '[data-cart-total]',
-        '.cart-total'
+        '.cart-total',
+        '.edd_cart_amount'
     ];
     
     totalSelectors.forEach(function(selector) {
@@ -368,7 +369,8 @@ function updateCartTotalsAdvanced(responseData) {
         '.edd-cart-subtotal-amount',
         '#edd_checkout_cart_subtotal',
         '[data-cart-subtotal]',
-        '.cart-subtotal'
+        '.cart-subtotal',
+        '.edd_cart_subtotal_amount'
     ];
     
     subtotalSelectors.forEach(function(selector) {
@@ -380,12 +382,58 @@ function updateCartTotalsAdvanced(responseData) {
         });
     });
     
-    // Update individual cart item price if visible
+    // Update the specific cart item price in the checkout table
+    if (responseData.old_cart_key && responseData.new_cart_key && responseData.price_amount) {
+        // Find the old cart item row and update it
+        var oldCartRow = document.querySelector('#edd_cart_item_' + responseData.old_cart_key + '_' + responseData.download_id);
+        var newCartRow = document.querySelector('#edd_cart_item_' + responseData.new_cart_key + '_' + responseData.download_id);
+        
+        // Update the old row ID to new row ID
+        if (oldCartRow) {
+            oldCartRow.id = 'edd_cart_item_' + responseData.new_cart_key + '_' + responseData.download_id;
+            
+            // Update the item price in the specific row
+            var priceCell = oldCartRow.querySelector('.edd_cart_item_price');
+            if (priceCell) {
+                priceCell.innerHTML = responseData.price_amount;
+            }
+        }
+        
+        // Also try to find by new cart key if the above didn't work
+        if (newCartRow) {
+            var priceCell = newCartRow.querySelector('.edd_cart_item_price');
+            if (priceCell) {
+                priceCell.innerHTML = responseData.price_amount;
+            }
+        }
+        
+        // Fallback: Update any cart item price that matches the download ID
+        var allCartItems = document.querySelectorAll('[data-download-id="' + responseData.download_id + '"] .edd_cart_item_price');
+        allCartItems.forEach(function(priceElement) {
+            priceElement.innerHTML = responseData.price_amount;
+        });
+    }
+    
+    // Update any other individual cart item prices
     var cartItems = document.querySelectorAll('.edd_cart_item, .edd-cart-item');
     cartItems.forEach(function(item) {
         var priceElement = item.querySelector('.edd_cart_item_price, .cart-item-price');
         if (priceElement && responseData.price_amount) {
-            priceElement.innerHTML = responseData.price_amount;
+            var downloadId = item.getAttribute('data-download-id');
+            if (downloadId && responseData.download_id && downloadId == responseData.download_id) {
+                priceElement.innerHTML = responseData.price_amount;
+            }
+        }
+    });
+    
+    // Update data attributes for cart totals
+    var cartAmountElements = document.querySelectorAll('.edd_cart_amount[data-total]');
+    cartAmountElements.forEach(function(element) {
+        if (responseData.cart_total_raw) {
+            element.setAttribute('data-total', responseData.cart_total_raw);
+        }
+        if (responseData.cart_subtotal_raw) {
+            element.setAttribute('data-subtotal', responseData.cart_subtotal_raw);
         }
     });
     
@@ -393,10 +441,13 @@ function updateCartTotalsAdvanced(responseData) {
     if (typeof jQuery !== 'undefined') {
         jQuery('body').trigger('edd_cart_updated');
         jQuery('body').trigger('edd_quantity_updated');
+        
+        // Trigger EDD's checkout update
+        jQuery('body').trigger('edd_checkout_cart_item_updated');
     }
     
     // Show visual feedback that totals updated
-    var totalElements = document.querySelectorAll('.edd_cart_total, .edd-cart-total');
+    var totalElements = document.querySelectorAll('.edd_cart_total, .edd-cart-total, .edd_cart_item_price');
     totalElements.forEach(function(element) {
         element.style.backgroundColor = '#d4edda';
         element.style.transition = 'background-color 0.3s';
