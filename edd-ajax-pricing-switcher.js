@@ -79,7 +79,9 @@ jQuery(document).ready(function($) {
     });
     
     // Handle checkout page pricing changes
-    $(document).on('change', '.edd-checkout-pricing-switcher', function() {
+    $(document).on('change', '.edd-checkout-pricing-switcher', function(e) {
+        e.stopPropagation(); // Prevent event bubbling
+        
         var $this = $(this);
         var $switcherWrapper = $this.closest('.edd-checkout-pricing-switcher');
         var $statusDiv = $switcherWrapper.find('.pricing-update-status');
@@ -122,9 +124,15 @@ jQuery(document).ready(function($) {
                     // Show success message briefly
                     $statusDiv.html('<span class="success-message" style="color: #27ae60;">✓ Updated to ' + response.data.price_name + '</span>');
                     
+                    // Auto-close panel after successful update
                     setTimeout(function() {
                         $statusDiv.fadeOut();
-                    }, 2500);
+                        var $panel = $switcherWrapper.find('.pricing-options-panel');
+                        var $icon = $switcherWrapper.find('.toggle-pricing-options .dashicons');
+                        $panel.slideUp(300, function() {
+                            $icon.removeClass('dashicons-arrow-up-alt2').addClass('dashicons-arrow-down-alt2');
+                        });
+                    }, 2000);
                     
                     // Update cart totals display
                     updateCartTotals(response.data);
@@ -279,15 +287,49 @@ jQuery(document).ready(function($) {
     // Handle checkout pricing toggle
     $(document).on('click', '.toggle-pricing-options', function(e) {
         e.preventDefault();
+        e.stopPropagation();
+        
         var $button = $(this);
-        var $panel = $button.closest('.edd-checkout-pricing-switcher').find('.pricing-options-panel');
+        var $switcher = $button.closest('.edd-checkout-pricing-switcher');
+        var $panel = $switcher.find('.pricing-options-panel');
         var $icon = $button.find('.dashicons');
         
+        // Close other open panels first
+        $('.edd-checkout-pricing-switcher').not($switcher).each(function() {
+            var $otherPanel = $(this).find('.pricing-options-panel');
+            var $otherIcon = $(this).find('.dashicons');
+            if ($otherPanel.is(':visible')) {
+                $otherPanel.slideUp(200);
+                $otherIcon.removeClass('dashicons-arrow-up-alt2').addClass('dashicons-arrow-down-alt2');
+            }
+        });
+        
+        // Toggle current panel
         if ($panel.length) {
-            $panel.slideToggle(300, function() {
-                if ($icon.length) {
-                    $icon.toggleClass('dashicons-arrow-down-alt2 dashicons-arrow-up-alt2');
-                }
+            if ($panel.is(':visible')) {
+                $panel.slideUp(300, function() {
+                    $icon.removeClass('dashicons-arrow-up-alt2').addClass('dashicons-arrow-down-alt2');
+                });
+            } else {
+                $panel.slideDown(300, function() {
+                    $icon.removeClass('dashicons-arrow-down-alt2').addClass('dashicons-arrow-up-alt2');
+                });
+            }
+        }
+    });
+    
+    // Prevent panel from closing when clicking inside it
+    $(document).on('click', '.pricing-options-panel', function(e) {
+        e.stopPropagation();
+    });
+    
+    // Close panels when clicking outside
+    $(document).on('click', function(e) {
+        if (!$(e.target).closest('.edd-checkout-pricing-switcher').length) {
+            $('.pricing-options-panel:visible').slideUp(200, function() {
+                $('.toggle-pricing-options .dashicons')
+                    .removeClass('dashicons-arrow-up-alt2')
+                    .addClass('dashicons-arrow-down-alt2');
             });
         }
     });
