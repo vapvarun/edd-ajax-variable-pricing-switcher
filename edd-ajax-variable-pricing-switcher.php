@@ -529,6 +529,7 @@ class EDD_AJAX_Variable_Pricing_Switcher {
             border: 1px solid #e0e0e0;
             border-radius: 6px;
             overflow: hidden;
+            position: relative;
         }
         
         .pricing-switcher-toggle {
@@ -548,21 +549,32 @@ class EDD_AJAX_Variable_Pricing_Switcher {
             align-items: center;
             justify-content: space-between;
             transition: background-color 0.2s ease;
+            position: relative;
+            z-index: 10;
         }
         
         .toggle-pricing-options:hover {
             background-color: #f8f9fa;
         }
         
+        .toggle-pricing-options:focus {
+            outline: 2px solid #0073aa;
+            outline-offset: -2px;
+        }
+        
         .toggle-pricing-options .dashicons {
             font-size: 16px;
             width: 16px;
             height: 16px;
+            transition: transform 0.2s ease;
         }
         
         .pricing-options-panel {
             border-top: 1px solid #e0e0e0;
             background: #fafafa;
+            display: none;
+            position: relative;
+            z-index: 5;
         }
         
         .checkout-pricing-group {
@@ -629,6 +641,19 @@ class EDD_AJAX_Variable_Pricing_Switcher {
         .edd-checkout-pricing-switcher.updating {
             opacity: 0.6;
             pointer-events: none;
+        }
+        
+        .edd-checkout-pricing-switcher.updating .pricing-options-panel {
+            pointer-events: none;
+        }
+        
+        .checkout-pricing-option:hover {
+            background-color: rgba(0,0,0,0.02);
+        }
+        
+        .checkout-pricing-option input[type="radio"]:focus {
+            outline: 2px solid #0073aa;
+            outline-offset: 1px;
         }
         
         @media (max-width: 768px) {
