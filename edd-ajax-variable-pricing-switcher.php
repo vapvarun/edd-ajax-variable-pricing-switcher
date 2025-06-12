@@ -33,12 +33,6 @@ class EDD_AJAX_Variable_Pricing_Switcher {
         
         // Add checkout page cart item pricing
         add_action('edd_checkout_cart_item_title_after', array($this, 'add_checkout_pricing_switcher'), 10, 2);
-        
-        // Add custom styles
-        add_action('wp_head', array($this, 'add_custom_styles'));
-        
-        // Add default selection script
-        add_action('wp_footer', array($this, 'add_default_selection_script'));
     }
     
     /**
@@ -70,7 +64,7 @@ class EDD_AJAX_Variable_Pricing_Switcher {
     }
     
     /**
-     * Enqueue JavaScript and localize data
+     * Enqueue JavaScript and CSS
      */
     public function enqueue_scripts() {
         if (!edd_is_checkout() && !is_singular('download')) {
@@ -83,6 +77,13 @@ class EDD_AJAX_Variable_Pricing_Switcher {
             array('jquery'), 
             '2.0.0', 
             true
+        );
+        
+        wp_enqueue_style(
+            'edd-ajax-pricing-switcher-css',
+            plugin_dir_url(__FILE__) . 'edd-ajax-pricing-switcher.css',
+            array(),
+            '2.0.0'
         );
         
         wp_localize_script('edd-ajax-pricing-switcher', 'edd_ajax_switcher', array(
@@ -199,7 +200,7 @@ class EDD_AJAX_Variable_Pricing_Switcher {
     }
     
     /**
-     * Handle AJAX price switching
+     * Handle AJAX price switching for product pages
      */
     public function ajax_switch_price() {
         // Verify nonce
@@ -279,7 +280,15 @@ class EDD_AJAX_Variable_Pricing_Switcher {
             return;
         }
         
-        $current_price_id = isset($item['options']['price_id']) ? $item['options']['price_id'] : 0;
+        // Get current price ID - handle both formats
+        $current_price_id = 0;
+        if (isset($item['options']['price_id'])) {
+            $current_price_id = $item['options']['price_id'];
+        } elseif (isset($item['options'][0])) {
+            $current_price_id = $item['options'][0];
+        }
+        
+        $current_price_name = isset($prices[$current_price_id]) ? $prices[$current_price_id]['name'] : 'Unknown';
         
         // Group prices by Annual/Lifetime
         $annual_prices = array();
@@ -293,64 +302,98 @@ class EDD_AJAX_Variable_Pricing_Switcher {
             }
         }
         
+        // Generate unique ID for this switcher
+        $switcher_id = 'edd_price_switcher_' . $download_id . '_' . $cart_key;
+        
         ?>
-        <div class="edd-checkout-pricing-switcher" data-cart-key="<?php echo esc_attr($cart_key); ?>" data-download-id="<?php echo esc_attr($download_id); ?>">
-            <div class="pricing-switcher-toggle">
-                <button type="button" class="toggle-pricing-options">
-                    <?php _e('Change License Type', 'edd-ajax-vps'); ?>
-                    <span class="dashicons dashicons-arrow-down-alt2"></span>
+        <div class="edd-simple-pricing-switcher" data-cart-key="<?php echo esc_attr($cart_key); ?>" data-download-id="<?php echo esc_attr($download_id); ?>">
+            
+            <!-- Current Selection Display -->
+            <div class="current-selection">
+                <strong><?php _e('Current License:', 'edd-ajax-vps'); ?></strong> 
+                <span class="current-license-name"><?php echo esc_html($current_price_name); ?></span>
+                
+                <button type="button" 
+                        onclick="togglePricingOptions('<?php echo esc_js($switcher_id); ?>')" 
+                        class="change-license-btn">
+                    <?php _e('Change License', 'edd-ajax-vps'); ?>
                 </button>
             </div>
             
-            <div class="pricing-options-panel" style="display: none;">
+            <!-- Pricing Options (Initially Hidden) -->
+            <div id="<?php echo esc_attr($switcher_id); ?>" class="pricing-options-container" style="display: none;">
                 
-                <?php if (!empty($annual_prices)): ?>
-                    <div class="checkout-pricing-group annual-group">
-                        <h5 class="checkout-group-title"><?php _e('Annual Licenses', 'edd-ajax-vps'); ?></h5>
-                        <?php foreach ($annual_prices as $key => $price): ?>
-                            <label class="checkout-pricing-option">
-                                <input type="radio" 
-                                       name="checkout_price_option_<?php echo $cart_key; ?>" 
-                                       class="edd-checkout-pricing-switcher" 
-                                       data-cart-key="<?php echo $cart_key; ?>"
-                                       data-download-id="<?php echo $download_id; ?>" 
-                                       value="<?php echo $key; ?>"
-                                       <?php checked($key, $current_price_id); ?>>
-                                <span class="option-details">
-                                    <span class="option-name"><?php echo esc_html($price['name']); ?></span>
-                                    <span class="option-price"><?php echo edd_currency_filter(edd_format_amount($price['amount'])); ?></span>
-                                </span>
-                            </label>
-                        <?php endforeach; ?>
-                    </div>
-                <?php endif; ?>
-                
-                <?php if (!empty($lifetime_prices)): ?>
-                    <div class="checkout-pricing-group lifetime-group">
-                        <h5 class="checkout-group-title"><?php _e('Lifetime Licenses', 'edd-ajax-vps'); ?></h5>
-                        <?php foreach ($lifetime_prices as $key => $price): ?>
-                            <label class="checkout-pricing-option">
-                                <input type="radio" 
-                                       name="checkout_price_option_<?php echo $cart_key; ?>" 
-                                       class="edd-checkout-pricing-switcher" 
-                                       data-cart-key="<?php echo $cart_key; ?>"
-                                       data-download-id="<?php echo $download_id; ?>" 
-                                       value="<?php echo $key; ?>"
-                                       <?php checked($key, $current_price_id); ?>>
-                                <span class="option-details">
-                                    <span class="option-name"><?php echo esc_html($price['name']); ?></span>
-                                    <span class="option-price"><?php echo edd_currency_filter(edd_format_amount($price['amount'])); ?></span>
-                                </span>
-                            </label>
-                        <?php endforeach; ?>
-                    </div>
-                <?php endif; ?>
-                
-                <div class="pricing-update-status" style="display: none;">
-                    <span class="updating-message"><?php _e('Updating cart...', 'edd-ajax-vps'); ?></span>
+                <div class="pricing-options-header">
+                    <h4><?php _e('Select License Type:', 'edd-ajax-vps'); ?></h4>
+                    <button type="button" onclick="document.getElementById('<?php echo esc_js($switcher_id); ?>').style.display = 'none'" class="close-options-btn">×</button>
                 </div>
                 
+                <form class="pricing-options-form">
+                    
+                    <?php if (!empty($annual_prices)): ?>
+                        <div class="price-group annual-group">
+                            <h5 class="group-title"><?php _e('Annual Licenses', 'edd-ajax-vps'); ?></h5>
+                            <?php foreach ($annual_prices as $key => $price): ?>
+                                <label class="price-option">
+                                    <input type="radio" 
+                                           name="selected_price_<?php echo esc_attr($download_id); ?>_<?php echo esc_attr($cart_key); ?>" 
+                                           value="<?php echo esc_attr($key); ?>"
+                                           data-cart-key="<?php echo esc_attr($cart_key); ?>"
+                                           data-download-id="<?php echo esc_attr($download_id); ?>"
+                                           data-price-name="<?php echo esc_attr($price['name']); ?>"
+                                           class="edd-simple-price-radio"
+                                           <?php checked($key, $current_price_id); ?>>
+                                    <span class="option-info">
+                                        <span class="option-name"><?php echo esc_html($price['name']); ?></span>
+                                        <span class="option-price"><?php echo edd_currency_filter(edd_format_amount($price['amount'])); ?></span>
+                                    </span>
+                                </label>
+                            <?php endforeach; ?>
+                        </div>
+                    <?php endif; ?>
+                    
+                    <?php if (!empty($lifetime_prices)): ?>
+                        <div class="price-group lifetime-group">
+                            <h5 class="group-title"><?php _e('Lifetime Licenses', 'edd-ajax-vps'); ?></h5>
+                            <?php foreach ($lifetime_prices as $key => $price): ?>
+                                <label class="price-option">
+                                    <input type="radio" 
+                                           name="selected_price_<?php echo esc_attr($download_id); ?>_<?php echo esc_attr($cart_key); ?>" 
+                                           value="<?php echo esc_attr($key); ?>"
+                                           data-cart-key="<?php echo esc_attr($cart_key); ?>"
+                                           data-download-id="<?php echo esc_attr($download_id); ?>"
+                                           data-price-name="<?php echo esc_attr($price['name']); ?>"
+                                           class="edd-simple-price-radio"
+                                           <?php checked($key, $current_price_id); ?>>
+                                    <span class="option-info">
+                                        <span class="option-name"><?php echo esc_html($price['name']); ?></span>
+                                        <span class="option-price"><?php echo edd_currency_filter(edd_format_amount($price['amount'])); ?></span>
+                                    </span>
+                                </label>
+                            <?php endforeach; ?>
+                        </div>
+                    <?php endif; ?>
+                    
+                    <div class="pricing-actions">
+                        <button type="button" 
+                                onclick="updatePricingInline('<?php echo esc_js($switcher_id); ?>', '<?php echo esc_js($cart_key); ?>', '<?php echo esc_js($download_id); ?>')"
+                                class="update-price-btn">
+                            <?php _e('Update License', 'edd-ajax-vps'); ?>
+                        </button>
+                        
+                        <button type="button" 
+                                onclick="document.getElementById('<?php echo esc_js($switcher_id); ?>').style.display = 'none'"
+                                class="cancel-price-btn">
+                            <?php _e('Cancel', 'edd-ajax-vps'); ?>
+                        </button>
+                    </div>
+                    
+                </form>
+                
+                <div class="pricing-status" style="display: none;"></div>
+                
             </div>
+            
         </div>
         <?php
     }
@@ -368,14 +411,37 @@ class EDD_AJAX_Variable_Pricing_Switcher {
         $download_id = absint($_POST['download_id']);
         $new_price_id = absint($_POST['price_id']);
         
-        if (!$cart_key || !$download_id || !isset($_POST['price_id'])) {
+        // Fix: Don't use empty() for cart_key since "0" is a valid cart key
+        if (!isset($_POST['cart_key']) || $download_id === 0 || !isset($_POST['price_id'])) {
             wp_send_json_error(array('message' => 'Invalid parameters'));
         }
         
         // Get current cart
         $cart_contents = edd_get_cart_contents();
         
-        if (!isset($cart_contents[$cart_key])) {
+        // Check if cart key exists (handle both string and numeric keys)
+        $cart_key_exists = false;
+        $actual_cart_item = null;
+        
+        // Try exact match first
+        if (isset($cart_contents[$cart_key])) {
+            $cart_key_exists = true;
+            $actual_cart_item = $cart_contents[$cart_key];
+        } 
+        // Try numeric conversion
+        elseif (is_numeric($cart_key) && isset($cart_contents[(int)$cart_key])) {
+            $cart_key = (int)$cart_key;
+            $cart_key_exists = true;
+            $actual_cart_item = $cart_contents[$cart_key];
+        }
+        // Try string conversion  
+        elseif (isset($cart_contents[(string)$cart_key])) {
+            $cart_key = (string)$cart_key;
+            $cart_key_exists = true;
+            $actual_cart_item = $cart_contents[$cart_key];
+        }
+        
+        if (!$cart_key_exists) {
             wp_send_json_error(array('message' => 'Cart item not found'));
         }
         
@@ -385,7 +451,7 @@ class EDD_AJAX_Variable_Pricing_Switcher {
         }
         
         // Update cart item with new price option
-        $cart_item = $cart_contents[$cart_key];
+        $cart_item = $actual_cart_item;
         $cart_item['options']['price_id'] = $new_price_id;
         
         // Remove old item and add new one
@@ -411,322 +477,6 @@ class EDD_AJAX_Variable_Pricing_Switcher {
         } else {
             wp_send_json_error(array('message' => 'Failed to update cart item'));
         }
-    }
-    
-    /**
-     * Add custom CSS styles
-     */
-    public function add_custom_styles() {
-        if (!edd_is_checkout() && !is_singular('download')) {
-            return;
-        }
-        ?>
-        <style type="text/css">
-        /* Product Page Styles */
-        .edd-ajax-pricing-wrapper {
-            margin: 20px 0;
-            border: 1px solid #e0e0e0;
-            border-radius: 8px;
-            overflow: hidden;
-        }
-        
-        .edd-pricing-group {
-            border-bottom: 1px solid #e0e0e0;
-            background: #fafafa;
-        }
-        
-        .edd-pricing-group:last-child {
-            border-bottom: none;
-        }
-        
-        .pricing-group-title {
-            margin: 0;
-            padding: 15px 20px;
-            background: #f0f0f0;
-            font-size: 16px;
-            font-weight: 600;
-            color: #333;
-            border-bottom: 1px solid #e0e0e0;
-        }
-        
-        .annual-group .pricing-group-title {
-            background: #e3f2fd;
-            color: #1976d2;
-        }
-        
-        .lifetime-group .pricing-group-title {
-            background: #e8f5e8;
-            color: #388e3c;
-        }
-        
-        .pricing-options {
-            padding: 15px 20px;
-        }
-        
-        .pricing-option {
-            display: flex;
-            align-items: center;
-            padding: 10px 0;
-            cursor: pointer;
-            transition: background-color 0.2s ease;
-        }
-        
-        .pricing-option:hover {
-            background-color: rgba(0,0,0,0.02);
-        }
-        
-        .pricing-option input[type="radio"] {
-            margin: 0 12px 0 0;
-        }
-        
-        .option-name {
-            flex: 1;
-            font-weight: 500;
-        }
-        
-        .option-price {
-            font-weight: 600;
-            color: #2c5282;
-        }
-        
-        .edd-ajax-price-display {
-            padding: 20px;
-            background: #fff;
-            text-align: center;
-            border-top: 2px solid #f0f0f0;
-        }
-        
-        .edd-price-wrap {
-            font-size: 24px;
-            font-weight: 700;
-            color: #2c5282;
-        }
-        
-        .edd-loading-indicator {
-            color: #666;
-            font-style: italic;
-        }
-        
-        .original-price {
-            text-decoration: line-through;
-            color: #999;
-        }
-        
-        .discounted-price {
-            color: #27ae60;
-            font-weight: bold;
-        }
-        
-        .edd-ajax-pricing-wrapper.loading {
-            opacity: 0.6;
-            pointer-events: none;
-        }
-        
-        /* Checkout Page Styles */
-        .edd-checkout-pricing-switcher {
-            margin: 10px 0;
-            background: #f9f9f9;
-            border: 1px solid #e0e0e0;
-            border-radius: 6px;
-            overflow: hidden;
-            position: relative;
-        }
-        
-        .pricing-switcher-toggle {
-            background: #fff;
-        }
-        
-        .toggle-pricing-options {
-            width: 100%;
-            padding: 12px 15px;
-            background: none;
-            border: none;
-            text-align: left;
-            cursor: pointer;
-            font-size: 14px;
-            color: #0073aa;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            transition: background-color 0.2s ease;
-            position: relative;
-            z-index: 10;
-        }
-        
-        .toggle-pricing-options:hover {
-            background-color: #f8f9fa;
-        }
-        
-        .toggle-pricing-options:focus {
-            outline: 2px solid #0073aa;
-            outline-offset: -2px;
-        }
-        
-        .toggle-pricing-options .dashicons {
-            font-size: 16px;
-            width: 16px;
-            height: 16px;
-            transition: transform 0.2s ease;
-        }
-        
-        .pricing-options-panel {
-            border-top: 1px solid #e0e0e0;
-            background: #fafafa;
-            display: none;
-            position: relative;
-            z-index: 5;
-        }
-        
-        .checkout-pricing-group {
-            padding: 15px;
-            border-bottom: 1px solid #e0e0e0;
-        }
-        
-        .checkout-pricing-group:last-child {
-            border-bottom: none;
-        }
-        
-        .checkout-group-title {
-            margin: 0 0 10px 0;
-            font-size: 14px;
-            font-weight: 600;
-            color: #333;
-        }
-        
-        .annual-group .checkout-group-title {
-            color: #1976d2;
-        }
-        
-        .lifetime-group .checkout-group-title {
-            color: #388e3c;
-        }
-        
-        .checkout-pricing-option {
-            display: flex;
-            align-items: center;
-            padding: 8px 0;
-            cursor: pointer;
-            font-size: 14px;
-        }
-        
-        .checkout-pricing-option input[type="radio"] {
-            margin: 0 10px 0 0;
-        }
-        
-        .checkout-pricing-option .option-details {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            width: 100%;
-        }
-        
-        .checkout-pricing-option .option-name {
-            font-weight: 500;
-        }
-        
-        .checkout-pricing-option .option-price {
-            font-weight: 600;
-            color: #2c5282;
-        }
-        
-        .pricing-update-status {
-            padding: 15px;
-            text-align: center;
-            background: #fff3cd;
-            border-top: 1px solid #ffeaa7;
-            color: #856404;
-            font-style: italic;
-        }
-        
-        .edd-checkout-pricing-switcher.updating {
-            opacity: 0.6;
-            pointer-events: none;
-        }
-        
-        .edd-checkout-pricing-switcher.updating .pricing-options-panel {
-            pointer-events: none;
-        }
-        
-        .checkout-pricing-option:hover {
-            background-color: rgba(0,0,0,0.02);
-        }
-        
-        .checkout-pricing-option input[type="radio"]:focus {
-            outline: 2px solid #0073aa;
-            outline-offset: 1px;
-        }
-        
-        @media (max-width: 768px) {
-            .pricing-group-title,
-            .pricing-options {
-                padding: 12px 15px;
-            }
-            
-            .edd-ajax-price-display {
-                padding: 15px;
-            }
-            
-            .edd-price-wrap {
-                font-size: 20px;
-            }
-            
-            .checkout-pricing-option .option-details {
-                flex-direction: column;
-                align-items: flex-start;
-                gap: 4px;
-            }
-            
-            .toggle-pricing-options {
-                font-size: 13px;
-                padding: 10px 12px;
-            }
-        }
-        </style>
-        <?php
-    }
-    
-    /**
-     * Add default selection script to footer
-     */
-    public function add_default_selection_script() {
-        if (!edd_is_checkout() && !is_singular('download')) {
-            return;
-        }
-        ?>
-        <script type="text/javascript">
-        jQuery(document).ready(function($) {
-            // Ensure default options are selected on page load
-            $('.edd-ajax-pricing-wrapper').each(function() {
-                var $wrapper = $(this);
-                var defaultPrice = $wrapper.data('default-price');
-                
-                // Check the default option if none is selected
-                var $checkedInput = $wrapper.find('input[type="radio"]:checked');
-                if ($checkedInput.length === 0 && defaultPrice) {
-                    $wrapper.find('input[value="' + defaultPrice + '"]').prop('checked', true);
-                }
-                
-                // Update hidden input
-                var selectedValue = $wrapper.find('input[type="radio"]:checked').val();
-                if (selectedValue) {
-                    $wrapper.find('.edd-selected-price-input').val(selectedValue);
-                }
-            });
-            
-            // Handle checkout pricing toggle
-            $(document).on('click', '.toggle-pricing-options', function(e) {
-                e.preventDefault();
-                var $button = $(this);
-                var $panel = $button.closest('.edd-checkout-pricing-switcher').find('.pricing-options-panel');
-                var $icon = $button.find('.dashicons');
-                
-                $panel.slideToggle(300, function() {
-                    $icon.toggleClass('dashicons-arrow-down-alt2 dashicons-arrow-up-alt2');
-                });
-            });
-        });
-        </script>
-        <?php
     }
 }
 
