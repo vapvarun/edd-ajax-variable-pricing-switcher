@@ -1,0 +1,363 @@
+/* Product Page Styles */
+.edd-ajax-pricing-wrapper {
+    margin: 20px 0;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.edd-pricing-group {
+    border-bottom: 1px solid #e0e0e0;
+    background: #fafafa;
+}
+
+.edd-pricing-group:last-child {
+    border-bottom: none;
+}
+
+.pricing-group-title {
+    margin: 0;
+    padding: 15px 20px;
+    background: #f0f0f0;
+    font-size: 16px;
+    font-weight: 600;
+    color: #333;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.annual-group .pricing-group-title {
+    background: #e3f2fd;
+    color: #1976d2;
+}
+
+.lifetime-group .pricing-group-title {
+    background: #e8f5e8;
+    color: #388e3c;
+}
+
+.pricing-options {
+    padding: 15px 20px;
+}
+
+.pricing-option {
+    display: flex;
+    align-items: center;
+    padding: 10px 0;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.pricing-option:hover {
+    background-color: rgba(0,0,0,0.02);
+}
+
+.pricing-option input[type="radio"] {
+    margin: 0 12px 0 0;
+}
+
+.option-name {
+    flex: 1;
+    font-weight: 500;
+}
+
+.option-price {
+    font-weight: 600;
+    color: #2c5282;
+}
+
+.edd-ajax-price-display {
+    padding: 20px;
+    background: #fff;
+    text-align: center;
+    border-top: 2px solid #f0f0f0;
+}
+
+.edd-price-wrap {
+    font-size: 24px;
+    font-weight: 700;
+    color: #2c5282;
+}
+
+.edd-loading-indicator {
+    color: #666;
+    font-style: italic;
+}
+
+.original-price {
+    text-decoration: line-through;
+    color: #999;
+}
+
+.discounted-price {
+    color: #27ae60;
+    font-weight: bold;
+}
+
+.edd-ajax-pricing-wrapper.loading {
+    opacity: 0.6;
+    pointer-events: none;
+}
+
+/* Checkout Page Styles */
+.edd-simple-pricing-switcher {
+    margin: 15px 0;
+    padding: 15px;
+    background: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 6px;
+}
+
+.current-selection {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.current-license-name {
+    color: #495057;
+    font-weight: 500;
+}
+
+.change-license-btn {
+    background: #007cba;
+    color: white;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    transition: background-color 0.2s;
+    white-space: nowrap;
+    display: inline-block;
+    text-decoration: none;
+    line-height: 1;
+}
+
+.change-license-btn:hover {
+    background: #005a87;
+    color: white;
+}
+
+.change-license-btn:focus {
+    outline: 2px solid #005a87;
+    outline-offset: 2px;
+}
+
+.change-license-btn:active {
+    background: #004670;
+}
+
+.pricing-options-container {
+    margin-top: 15px;
+    background: #ffffff;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    padding: 20px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.pricing-options-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.pricing-options-header h4 {
+    margin: 0;
+    color: #495057;
+    font-size: 16px;
+}
+
+.close-options-btn {
+    background: none;
+    border: none;
+    font-size: 20px;
+    cursor: pointer;
+    color: #6c757d;
+    padding: 0;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.close-options-btn:hover {
+    color: #495057;
+}
+
+.pricing-options-form {
+    margin-bottom: 20px;
+}
+
+.price-group {
+    margin: 20px 0;
+}
+
+.price-group .group-title {
+    margin: 0 0 15px 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: #495057;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.annual-group .group-title {
+    color: #1976d2;
+}
+
+.lifetime-group .group-title {
+    color: #388e3c;
+}
+
+.price-option {
+    display: flex;
+    align-items: center;
+    padding: 12px;
+    margin: 8px 0;
+    border: 1px solid #e9ecef;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.price-option:hover {
+    background: #f8f9fa;
+    border-color: #007cba;
+}
+
+.price-option input[type="radio"] {
+    margin: 0 12px 0 0;
+}
+
+.option-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+}
+
+.option-name {
+    font-weight: 500;
+    color: #495057;
+}
+
+.option-price {
+    font-weight: 600;
+    color: #007cba;
+}
+
+.pricing-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    padding-top: 15px;
+    border-top: 1px solid #e9ecef;
+}
+
+.update-price-btn {
+    background: #28a745;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: background-color 0.2s;
+}
+
+.update-price-btn:hover {
+    background: #218838;
+}
+
+.update-price-btn:disabled {
+    background: #6c757d;
+    cursor: not-allowed;
+}
+
+.cancel-price-btn {
+    background: #6c757d;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.cancel-price-btn:hover {
+    background: #5a6268;
+}
+
+.pricing-status {
+    padding: 15px;
+    text-align: center;
+    border-radius: 4px;
+    margin-top: 15px;
+}
+
+.pricing-status.success {
+    background: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+
+.pricing-status.error {
+    background: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+}
+
+.pricing-status.loading {
+    background: #fff3cd;
+    color: #856404;
+    border: 1px solid #ffeaa7;
+}
+
+.edd-simple-pricing-switcher.updating {
+    opacity: 0.7;
+    pointer-events: none;
+}
+
+/* Mobile Responsive Styles */
+@media (max-width: 768px) {
+    .pricing-group-title,
+    .pricing-options {
+        padding: 12px 15px;
+    }
+    
+    .edd-ajax-price-display {
+        padding: 15px;
+    }
+    
+    .edd-price-wrap {
+        font-size: 20px;
+    }
+    
+    .current-selection {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+    
+    .option-info {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 4px;
+    }
+    
+    .pricing-actions {
+        flex-direction: column;
+    }
+    
+    .update-price-btn,
+    .cancel-price-btn {
+        width: 100%;
+    }
+}
