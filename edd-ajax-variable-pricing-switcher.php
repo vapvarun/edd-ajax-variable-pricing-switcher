@@ -489,12 +489,16 @@ class EDD_AJAX_Variable_Pricing_Switcher {
                                 // Show success
                                 if (statusDiv) {
                                     statusDiv.className = 'pricing-status success';
-                                    statusDiv.innerHTML = '✓ License updated successfully!';
+                                    statusDiv.innerHTML = '✓ License updated successfully! Refreshing...';
                                 }
                                 
-                                // Update all cart totals
-                                if (typeof updateCartTotalsAdvanced === 'function') {
-                                    updateCartTotalsAdvanced(response.data);
+                                // Update current license display
+                                var switcher = container.closest('.edd-simple-pricing-switcher');
+                                if (switcher) {
+                                    var currentName = switcher.querySelector('.current-license-name');
+                                    if (currentName) {
+                                        currentName.textContent = priceName;
+                                    }
                                 }
                                 
                                 // Update cart key for future requests
@@ -506,9 +510,15 @@ class EDD_AJAX_Variable_Pricing_Switcher {
                                     });
                                 }
                                 
-                                // Close panel after success
+                                // Close panel
                                 setTimeout(function() {
                                     container.style.display = 'none';
+                                }, 1000);
+                                
+                                // Simple approach: Just reload the page after a short delay
+                                // This ensures all cart calculations are 100% accurate
+                                setTimeout(function() {
+                                    window.location.reload();
                                 }, 1500);
                                 
                             } else {
@@ -611,6 +621,8 @@ class EDD_AJAX_Variable_Pricing_Switcher {
             $selected_price = $prices[$new_price_id];
             $new_total = edd_get_cart_total();
             $new_subtotal = edd_get_cart_subtotal();
+            $new_tax = edd_use_taxes() ? edd_get_cart_tax() : 0;
+            $new_discount = edd_get_cart_discounted_amount();
             
             $response_data = array(
                 'success' => true,
@@ -621,14 +633,77 @@ class EDD_AJAX_Variable_Pricing_Switcher {
                 'price_amount' => edd_currency_filter(edd_format_amount($selected_price['amount'])),
                 'cart_total' => edd_currency_filter($new_total),
                 'cart_subtotal' => edd_currency_filter($new_subtotal),
+                'cart_tax' => edd_currency_filter(edd_format_amount($new_tax)),
+                'cart_discount' => edd_currency_filter(edd_format_amount($new_discount)),
                 'cart_total_raw' => $new_total,
-                'cart_subtotal_raw' => $new_subtotal
+                'cart_subtotal_raw' => $new_subtotal,
+                'cart_tax_raw' => $new_tax,
+                'cart_discount_raw' => $new_discount,
+                'cart_html' => $this->get_updated_cart_html()
             );
             
             wp_send_json_success($response_data);
         } else {
             wp_send_json_error(array('message' => 'Failed to update cart item'));
         }
+    }
+    
+    /**
+     * Get updated cart HTML for AJAX response
+     */
+    private function get_updated_cart_html() {
+        if (!edd_is_checkout()) {
+            return '';
+        }
+        
+        ob_start();
+        
+        // Get the updated cart contents
+        $cart_items = edd_get_cart_contents();
+        if (empty($cart_items)) {
+            return '';
+        }
+        
+        // Generate the cart rows HTML
+        foreach ($cart_items as $key => $item) {
+            ?>
+            <tr class="edd_cart_item" id="edd_cart_item_<?php echo esc_attr($key) . '_' . esc_attr($item['id']); ?>" data-download-id="<?php echo esc_attr($item['id']); ?>">
+                <?php do_action('edd_checkout_table_body_first', $item); ?>
+                <td class="edd_cart_item_name">
+                    <?php
+                    if (current_theme_supports('post-thumbnails') && has_post_thumbnail($item['id'])) {
+                        echo '<div class="edd_cart_item_image">';
+                        echo get_the_post_thumbnail($item['id'], apply_filters('edd_checkout_image_size', array(25, 25)));
+                        echo '</div>';
+                    }
+                    $item_title = edd_get_cart_item_name($item);
+                    echo '<span class="edd_checkout_cart_item_title">' . esc_html($item_title) . '</span>';
+                    
+                    // Include our pricing switcher
+                    do_action('edd_checkout_cart_item_title_after', $item, $key);
+                    ?>
+                </td>
+                <td class="edd_cart_item_price">
+                    <?php
+                    echo edd_cart_item_price($item['id'], $item['options']);
+                    do_action('edd_checkout_cart_item_price_after', $item);
+                    ?>
+                </td>
+                <td class="edd_cart_actions">
+                    <?php if (edd_item_quantities_enabled() && !edd_download_quantities_disabled($item['id'])): ?>
+                        <input type="number" min="1" step="1" name="edd-cart-download-<?php echo esc_attr($key); ?>-quantity" data-key="<?php echo esc_attr($key); ?>" class="edd-input edd-item-quantity" value="<?php echo esc_attr(edd_get_cart_item_quantity($item['id'], $item['options'])); ?>"/>
+                        <input type="hidden" name="edd-cart-downloads[]" value="<?php echo esc_attr($item['id']); ?>"/>
+                        <input type="hidden" name="edd-cart-download-<?php echo esc_attr($key); ?>-options" value="<?php echo esc_attr(json_encode($item['options'])); ?>"/>
+                    <?php endif; ?>
+                    <?php do_action('edd_cart_actions', $item, $key); ?>
+                    <a class="edd_cart_remove_item_btn" href="<?php echo esc_url(wp_nonce_url(edd_remove_item_url($key), 'edd-remove-from-cart-' . sanitize_key($key), 'edd_remove_from_cart_nonce')); ?>"><?php esc_html_e('Remove', 'easy-digital-downloads'); ?></a>
+                </td>
+                <?php do_action('edd_checkout_table_body_last', $item); ?>
+            </tr>
+            <?php
+        }
+        
+        return ob_get_clean();
     }
 }
 

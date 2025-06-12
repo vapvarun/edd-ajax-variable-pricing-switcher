@@ -202,6 +202,18 @@ jQuery(document).ready(function($) {
 
 // Global functions for inline onclick handlers
 function togglePricingOptions(targetId) {
+    // Prevent multiple rapid clicks
+    var targetContainer = document.getElementById(targetId);
+    if (!targetContainer) {
+        return;
+    }
+    
+    if (targetContainer.getAttribute('data-toggling') === 'true') {
+        return; // Already toggling
+    }
+    
+    targetContainer.setAttribute('data-toggling', 'true');
+    
     // Hide all other pricing containers
     var allContainers = document.querySelectorAll('.pricing-options-container');
     allContainers.forEach(function(container) {
@@ -211,14 +223,16 @@ function togglePricingOptions(targetId) {
     });
     
     // Toggle the target container
-    var targetContainer = document.getElementById(targetId);
-    if (targetContainer) {
-        if (targetContainer.style.display === 'none' || !targetContainer.style.display) {
-            targetContainer.style.display = 'block';
-        } else {
-            targetContainer.style.display = 'none';
-        }
+    if (targetContainer.style.display === 'none' || !targetContainer.style.display) {
+        targetContainer.style.display = 'block';
+    } else {
+        targetContainer.style.display = 'none';
     }
+    
+    // Remove toggling flag after short delay
+    setTimeout(function() {
+        targetContainer.removeAttribute('data-toggling');
+    }, 300);
 }
 
 function updatePricingInline(targetId, cartKey, downloadId) {
@@ -226,6 +240,11 @@ function updatePricingInline(targetId, cartKey, downloadId) {
     if (!container) {
         alert('Container not found');
         return;
+    }
+    
+    // Check if already updating
+    if (container.getAttribute('data-updating') === 'true') {
+        return; // Prevent multiple simultaneous updates
     }
     
     var selectedRadio = container.querySelector('.edd-simple-price-radio:checked');
@@ -242,6 +261,17 @@ function updatePricingInline(targetId, cartKey, downloadId) {
         return;
     }
     
+    // Mark as updating to prevent double clicks
+    container.setAttribute('data-updating', 'true');
+    
+    // Disable all Change License buttons temporarily
+    var allChangeButtons = document.querySelectorAll('.change-license-btn');
+    allChangeButtons.forEach(function(btn) {
+        btn.disabled = true;
+        btn.style.opacity = '0.5';
+        btn.style.pointerEvents = 'none';
+    });
+    
     // Show loading
     var statusDiv = container.querySelector('.pricing-status');
     if (statusDiv) {
@@ -250,7 +280,7 @@ function updatePricingInline(targetId, cartKey, downloadId) {
         statusDiv.style.display = 'block';
     }
     
-    // Disable button
+    // Disable update button
     var button = container.querySelector('.update-price-btn');
     if (button) {
         button.disabled = true;
@@ -282,19 +312,8 @@ function updatePricingInline(targetId, cartKey, downloadId) {
                         if (currentName) {
                             currentName.textContent = priceName;
                         }
-                    }
-                    
-                    // Show success
-                    if (statusDiv) {
-                        statusDiv.className = 'pricing-status success';
-                        statusDiv.innerHTML = '✓ License updated successfully!';
-                    }
-                    
-                    // Update all cart totals without page reload
-                    updateCartTotalsAdvanced(response.data);
-                    
-                    // Update cart key for future requests
-                    if (switcher) {
+                        
+                        // Update this specific switcher's cart key for future updates
                         switcher.setAttribute('data-cart-key', response.data.new_cart_key);
                         var radios = switcher.querySelectorAll('.edd-simple-price-radio');
                         radios.forEach(function(radio) {
@@ -302,9 +321,20 @@ function updatePricingInline(targetId, cartKey, downloadId) {
                         });
                     }
                     
-                    // Close panel after success
+                    // Show success
+                    if (statusDiv) {
+                        statusDiv.className = 'pricing-status success';
+                        statusDiv.innerHTML = '✓ License updated successfully! Refreshing...';
+                    }
+                    
+                    // Close panel
                     setTimeout(function() {
                         container.style.display = 'none';
+                    }, 1000);
+                    
+                    // Reload page to ensure all cart values are correct
+                    setTimeout(function() {
+                        window.location.reload();
                     }, 1500);
                     
                 } else {
@@ -313,21 +343,30 @@ function updatePricingInline(targetId, cartKey, downloadId) {
                     
                     if (statusDiv) {
                         statusDiv.className = 'pricing-status error';
-                        statusDiv.innerHTML = errorMsg;
+                        statusDiv.innerHTML = '✗ ' + errorMsg;
                     }
+                    
+                    // Re-enable buttons on error
+                    enableAllButtons();
+                    container.removeAttribute('data-updating');
                 }
             },
             error: function(xhr, status, error) {
                 var errorMsg = status === 'timeout' ? 
                     'Update timed out. Please try again.' : 
-                    'Network error: ' + error;
+                    'Network error. Please try again.';
                 
                 if (statusDiv) {
                     statusDiv.className = 'pricing-status error';
-                    statusDiv.innerHTML = errorMsg;
+                    statusDiv.innerHTML = '✗ ' + errorMsg;
                 }
+                
+                // Re-enable buttons on error
+                enableAllButtons();
+                container.removeAttribute('data-updating');
             },
             complete: function() {
+                // Re-enable update button
                 if (button) {
                     button.disabled = false;
                     button.innerHTML = 'Update License';
@@ -336,10 +375,22 @@ function updatePricingInline(targetId, cartKey, downloadId) {
         });
     } else {
         alert('AJAX not available');
+        enableAllButtons();
+        container.removeAttribute('data-updating');
     }
 }
 
-// Advanced cart totals update without page reload
+// Helper function to re-enable all change license buttons
+function enableAllButtons() {
+    var allChangeButtons = document.querySelectorAll('.change-license-btn');
+    allChangeButtons.forEach(function(btn) {
+        btn.disabled = false;
+        btn.style.opacity = '1';
+        btn.style.pointerEvents = 'auto';
+    });
+}
+
+// Advanced cart totals update function (kept for potential future use)
 function updateCartTotalsAdvanced(responseData) {
     // Update all possible cart total elements
     var totalSelectors = [
@@ -382,26 +433,51 @@ function updateCartTotalsAdvanced(responseData) {
         });
     });
     
+    // Update tax elements
+    if (responseData.cart_tax) {
+        var taxSelectors = [
+            '.edd_cart_tax',
+            '.edd_cart_tax_amount',
+            '.edd-cart-tax',
+            '[data-tax]'
+        ];
+        
+        taxSelectors.forEach(function(selector) {
+            var elements = document.querySelectorAll(selector);
+            elements.forEach(function(element) {
+                element.innerHTML = responseData.cart_tax;
+                if (element.hasAttribute('data-tax') && responseData.cart_tax_raw) {
+                    element.setAttribute('data-tax', responseData.cart_tax_raw);
+                }
+            });
+        });
+    }
+    
+    // Update discount elements
+    if (responseData.cart_discount) {
+        var discountSelectors = [
+            '.edd_cart_discount',
+            '.edd-cart-discount',
+            '.edd_discount_amount'
+        ];
+        
+        discountSelectors.forEach(function(selector) {
+            var elements = document.querySelectorAll(selector);
+            elements.forEach(function(element) {
+                element.innerHTML = responseData.cart_discount;
+            });
+        });
+    }
+    
     // Update the specific cart item price in the checkout table
     if (responseData.old_cart_key && responseData.new_cart_key && responseData.price_amount) {
         // Find the old cart item row and update it
         var oldCartRow = document.querySelector('#edd_cart_item_' + responseData.old_cart_key + '_' + responseData.download_id);
-        var newCartRow = document.querySelector('#edd_cart_item_' + responseData.new_cart_key + '_' + responseData.download_id);
-        
-        // Update the old row ID to new row ID
         if (oldCartRow) {
             oldCartRow.id = 'edd_cart_item_' + responseData.new_cart_key + '_' + responseData.download_id;
             
             // Update the item price in the specific row
             var priceCell = oldCartRow.querySelector('.edd_cart_item_price');
-            if (priceCell) {
-                priceCell.innerHTML = responseData.price_amount;
-            }
-        }
-        
-        // Also try to find by new cart key if the above didn't work
-        if (newCartRow) {
-            var priceCell = newCartRow.querySelector('.edd_cart_item_price');
             if (priceCell) {
                 priceCell.innerHTML = responseData.price_amount;
             }
@@ -413,18 +489,6 @@ function updateCartTotalsAdvanced(responseData) {
             priceElement.innerHTML = responseData.price_amount;
         });
     }
-    
-    // Update any other individual cart item prices
-    var cartItems = document.querySelectorAll('.edd_cart_item, .edd-cart-item');
-    cartItems.forEach(function(item) {
-        var priceElement = item.querySelector('.edd_cart_item_price, .cart-item-price');
-        if (priceElement && responseData.price_amount) {
-            var downloadId = item.getAttribute('data-download-id');
-            if (downloadId && responseData.download_id && downloadId == responseData.download_id) {
-                priceElement.innerHTML = responseData.price_amount;
-            }
-        }
-    });
     
     // Update data attributes for cart totals
     var cartAmountElements = document.querySelectorAll('.edd_cart_amount[data-total]');
@@ -441,13 +505,14 @@ function updateCartTotalsAdvanced(responseData) {
     if (typeof jQuery !== 'undefined') {
         jQuery('body').trigger('edd_cart_updated');
         jQuery('body').trigger('edd_quantity_updated');
-        
-        // Trigger EDD's checkout update
+        jQuery('body').trigger('edd_taxes_updated');
+        jQuery('body').trigger('edd_discount_updated');
         jQuery('body').trigger('edd_checkout_cart_item_updated');
+        jQuery('body').trigger('edd_checkout_updated');
     }
     
-    // Show visual feedback that totals updated
-    var totalElements = document.querySelectorAll('.edd_cart_total, .edd-cart-total, .edd_cart_item_price');
+    // Show visual feedback that elements were updated
+    var totalElements = document.querySelectorAll('.edd_cart_total, .edd-cart-total, .edd_cart_item_price, .edd_cart_tax_amount, .edd_cart_discount');
     totalElements.forEach(function(element) {
         element.style.backgroundColor = '#d4edda';
         element.style.transition = 'background-color 0.3s';
